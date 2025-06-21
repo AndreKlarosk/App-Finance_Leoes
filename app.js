@@ -64,7 +64,7 @@ const transactionsContent = document.getElementById('transactions-content');
 const reportsContent = document.getElementById('reports-content');
 const profileContent = document.getElementById('profile-content');
 
-const fabAddTransaction = document.getElementById('fab-add-transaction');
+// const fabAddTransaction = document.getElementById('fab-add-transaction'); // REMOVIDO
 const addTransactionBtn = document.getElementById('add-transaction-btn');
 const viewAllTransactionsBtn = document.getElementById('view-all-transactions-btn');
 
@@ -215,11 +215,7 @@ function showAppContent(contentId) {
     if (contentId === 'profile-content') navProfile.classList.add('text-indigo-600');
 
     // Show/hide FAB (Floating Action Button) based on content
-    if (contentId === 'dashboard-content' || contentId === 'transactions-content') {
-        fabAddTransaction.classList.remove('hidden');
-    } else {
-        fabAddTransaction.classList.add('hidden');
-    }
+    // REMOVIDO: fabAddTransaction.classList.remove('hidden'); / fabAddTransaction.classList.add('hidden');
 }
 
 /**
@@ -886,7 +882,8 @@ registerForm.addEventListener('submit', async (e) => {
         // Save user data to Firestore
         await saveUserProfile(name, photoURL || '');
         showNotification("Cadastro realizado com sucesso!", "success");
-    } catch (error) {
+    }
+    catch (error) {
         console.error("Erro no cadastro:", error);
         showNotification(`Erro no cadastro: ${error.message}`, 'error');
     }
@@ -972,9 +969,9 @@ navProfile.addEventListener('click', (e) => {
 
 
 // Transaction Management
-fabAddTransaction.addEventListener('click', () => {
-    openAddTransactionModal();
-});
+// fabAddTransaction.addEventListener('click', () => { // REMOVIDO
+//     openAddTransactionModal();
+// });
 addTransactionBtn.addEventListener('click', () => {
     openAddTransactionModal();
 });
