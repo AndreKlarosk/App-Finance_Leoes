@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Finanças</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        html, body {
+            height: 100%; /* Garante que HTML e Body ocupem 100% da altura da viewport */
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+            display: flex;
+            justify-content: center; /* Mantém o centralizado horizontal */
+            /* align-items: center; Removido para evitar o corte do conteúdo verticalmente */
+            /* min-height: 100vh; Removido, pois html, body 100% já gerenciam a altura */
+            flex-direction: column; /* Necessário para que o flex-grow funcione no #app-container */
+            flex-grow: 1; /* Permite que o body se estenda para preencher a tela */
+            /* Adicionado um pequeno padding vertical para que o app-container não toque nas bordas se ele for menor que a tela */
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+            box-sizing: border-box; /* Garante que padding e borda sejam incluídos na altura/largura */
+        }
+        #app-container {
+            max-width: 480px; /* Max width for mobile-first approach */
+            width: 100%;
+            background-color: #ffffff;
+            border-radius: 1.5rem; /* Rounded corners */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            overflow: hidden; /* O conteúdo interno rolará, e não o corpo da página */
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1; /* Permite que ele cresça e ocupe o espaço vertical disponível */
+            /* max-height: 100%; Removido, pois flex-grow e overflow-hidden já controlam */
+        }
+        /* Ajuste para telas maiores, mantendo uma proporção controlada */
+        @media (min-width: 640px) {
+            #app-container {
+                min-height: 600px; /* Altura mínima razoável para desktop */
+                max-height: 90vh; /* Ainda limita a altura em telas muito grandes */
+            }
+            body {
+                align-items: center; /* Centraliza verticalmente em telas maiores para melhor visual */
+            }
+        }
+
+        /* Certifica que as seções principais do conteúdo (dashboard, transactions, etc.) usam o espaço flexível */
+        #dashboard-content, #transactions-content, #reports-content, #profile-content {
+            flex: 1; /* Permite que cada main preencha o espaço disponível */
+            overflow-y: auto; /* Garante que o conteúdo role dentro de cada main */
+        }
+
+
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+            padding: 1rem; /* Added padding for smaller screens */
+            box-sizing: border-box; /* Include padding in width/height */
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: auto; /* Centering with auto margins when not flex-aligning */
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            max-width: 90%; /* Responsive width */
+            width: 400px; /* Fixed width for larger screens, overridden by max-width */
+            animation: fadeIn 0.3s ease-out;
+            position: relative;
+            box-sizing: border-box; /* Include padding in width/height */
+
+            /* Adjust for small screens to prevent overflow */
+            @media (max-width: 400px) {
+                width: 95%; /* Even narrower on very small screens */
+                padding: 1rem; /* Reduce padding for very small screens */
+            }
+        }
+        .close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+        .notification {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50;
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .notification.show {
+            opacity: 1;
+        }
+        .input-group {
+            margin-bottom: 1rem;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #4a5568;
+        }
+        .input-group input[type="text"],
+        .input-group input[type="email"],
+        .input-group input[type="password"],
+        .input-group input[type="url"],
+        .input-group input[type="number"],
+        .input-group input[type="date"],
+        .input-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease-in-out;
+        }
+        /* New focus style for inputs */
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #6366f1; /* Indigo-500 */
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4); /* Stronger shadow on focus */
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+        }
+        .btn-primary {
+            background-color: #6366f1; /* Indigo-500 */
+            color: white;
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+        }
+        .btn-primary:hover {
+            background-color: #4f46e5; /* Indigo-600 */
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background-color: #cbd5e1; /* Slate-300 */
+            color: #4a5568;
+        }
+        .btn-secondary:hover {
+            background-color: #a0aec0; /* Slate-400 */
+        }
+        .btn-danger {
+            background-color: #ef4444; /* Red-500 */
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #dc2626; /* Red-600 */
+        }
+        /* Animation for modals */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Dashboard specific styles */
+        .card {
+            background-color: #fff;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .transaction-item, .goal-item, .category-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f0f2f5;
+        }
+        .transaction-item:last-child, .goal-item:last-child, .category-item:last-child {
+            border-bottom: none;
+        }
+        .transaction-income {
+            color: #10b981; /* Emerald-500 */
+        }
+        .transaction-expense {
+            color: #ef4444; /* Red-500 */
+        }
+        .profile-pic {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #6366f1;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .progress-bar-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 0.5rem;
+            height: 0.75rem;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #6366f1; /* Indigo-500 */
+            border-radius: 0.5rem;
+            transition: width 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <!-- Splash Screen/Loading Indicator -->
+        <div id="splash-screen" class="absolute inset-0 flex items-center justify-center bg-indigo-600 text-white z-50 transition-opacity duration-500">
+            <div class="text-center">
+                <i class="fas fa-spinner fa-spin text-5xl mb-4"></i>
+                <h1 class="text-3xl font-bold">Minhas Finanças</h1>
+                <p class="text-lg">Carregando...</p>
+            </div>
+        </div>
+
+        <!-- Login Section -->
+        <section id="login-section" class="flex flex-col items-center justify-center p-8 h-full">
+            <h2 class="text-4xl font-extrabold text-indigo-700 mb-6 drop-shadow-md">Bem-vindo(a)!</h2>
+            <p class="text-gray-600 text-center mb-8">Gerencie suas finanças de forma inteligente e colorida.</p>
+
+            <form id="login-form" class="w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl">
+                <div class="input-group">
+                    <label for="login-email" class="text-gray-700 font-medium"><i class="fas fa-envelope mr-2 text-indigo-500"></i>E-mail</label>
+                    <input type="email" id="login-email" placeholder="seuemail@exemplo.com" required class="mt-2 text-gray-800">
+                </div>
+                <div class="input-group">
+                    <label for="login-password" class="text-gray-700 font-medium"><i class="fas fa-lock mr-2 text-indigo-500"></i>Senha</label>
+                    <input type="password" id="login-password" placeholder="Sua senha secreta" required class="mt-2 text-gray-800">
+                </div>
+                <button type="submit" class="btn btn-primary w-full mt-6 flex items-center justify-center">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Entrar
+                </button>
+                <button type="button" id="toggle-to-register" class="btn btn-secondary w-full mt-4 flex items-center justify-center">
+                    <i class="fas fa-user-plus mr-2"></i>Não tem conta? Cadastre-se
+                </button>
+                <button type="button" id="login-anonymous" class="btn btn-secondary w-full mt-4 flex items-center justify-center bg-yellow-400 hover:bg-yellow-500 text-yellow-800">
+                    <i class="fas fa-ghost mr-2"></i>Entrar Anonimamente
+                </button>
+                <button type="button" id="forgot-password-btn" class="text-sm text-indigo-600 hover:text-indigo-800 mt-4 block text-center">
+                    Esqueceu a senha?
+                </button>
+            </form>
+        </section>
+
+        <!-- Register Section -->
+        <section id="register-section" class="hidden flex-col items-center justify-center p-8 h-full">
+            <h2 class="text-4xl font-extrabold text-teal-700 mb-6 drop-shadow-md">Crie sua Conta</h2>
+            <p class="text-gray-600 text-center mb-8">Junte-se à nossa comunidade e organize suas finanças.</p>
+
+            <form id="register-form" class="w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl">
+                <div class="input-group">
+                    <label for="register-name" class="text-gray-700 font-medium"><i class="fas fa-user mr-2 text-teal-500"></i>Nome Completo</label>
+                    <input type="text" id="register-name" placeholder="Seu nome" required class="mt-2 text-gray-800">
+                </div>
+                <div class="input-group">
+                    <label for="register-email" class="text-gray-700 font-medium"><i class="fas fa-envelope mr-2 text-teal-500"></i>E-mail</label>
+                    <input type="email" id="register-email" placeholder="seuemail@exemplo.com" required class="mt-2 text-gray-800">
+                </div>
+                <div class="input-group">
+                    <label for="register-password" class="text-gray-700 font-medium"><i class="fas fa-lock mr-2 text-teal-500"></i>Senha</label>
+                    <input type="password" id="register-password" placeholder="Mínimo 6 caracteres" required class="mt-2 text-gray-800">
+                </div>
+                <div class="input-group">
+                    <label for="register-confirm-password" class="text-gray-700 font-medium"><i class="fas fa-lock mr-2 text-teal-500"></i>Confirmar Senha</label>
+                    <input type="password" id="register-confirm-password" placeholder="Repita a senha" required class="mt-2 text-gray-800">
+                </div>
+                <div class="input-group">
+                    <label for="register-photo-url" class="text-gray-700 font-medium"><i class="fas fa-camera mr-2 text-teal-500"></i>URL da Foto de Perfil (Opcional)</label>
+                    <input type="url" id="register-photo-url" placeholder="https://exemplo.com/sua-foto.jpg" class="mt-2 text-gray-800">
+                </div>
+                <button type="submit" class="btn btn-primary w-full mt-6 flex items-center justify-center bg-teal-600 hover:bg-teal-700">
+                    <i class="fas fa-user-plus mr-2"></i>Cadastrar
+                </button>
+                <button type="button" id="toggle-to-login" class="btn btn-secondary w-full mt-4 flex items-center justify-center">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Já tem conta? Entrar
+                </button>
+            </form>
+        </section>
+
+        <!-- Main App Section (Dashboard) -->
+        <section id="app-section" class="hidden flex-col flex-1">
+            <!-- Header -->
+            <header class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-b-3xl shadow-lg flex items-center justify-between">
+                <div class="flex items-center">
+                    <img id="user-profile-pic" src="https://placehold.co/80x80/6366f1/ffffff?text=PF" alt="Foto de Perfil" class="profile-pic mr-4">
+                    <div>
+                        <h1 class="text-2xl font-bold">Olá, <span id="user-name">Usuário</span>!</h1>
+                        <p class="text-sm opacity-90" id="user-id-display"></p>
+                    </div>
+                </div>
+                <button id="logout-button" class="btn bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-2 rounded-lg flex items-center">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                </button>
+            </header>
+
+            <!-- Navigation -->
+            <nav class="bg-white py-4 shadow-md flex justify-around text-gray-600 font-medium">
+                <a href="#" id="nav-dashboard" class="flex flex-col items-center p-2 rounded-lg text-indigo-600">
+                    <i class="fas fa-home text-xl mb-1"></i>
+                    <span class="text-xs">Dashboard</span>
+                </a>
+                <a href="#" id="nav-transactions" class="flex flex-col items-center p-2 rounded-lg hover:text-indigo-600">
+                    <i class="fas fa-exchange-alt text-xl mb-1"></i>
+                    <span class="text-xs">Transações</span>
+                </a>
+                <a href="#" id="nav-reports" class="flex flex-col items-center p-2 rounded-lg hover:text-indigo-600">
+                    <i class="fas fa-chart-pie text-xl mb-1"></i>
+                    <span class="text-xs">Relatórios</span>
+                </a>
+                <a href="#" id="nav-profile" class="flex flex-col items-center p-2 rounded-lg hover:text-indigo-600">
+                    <i class="fas fa-user-circle text-xl mb-1"></i>
+                    <span class="text-xs">Perfil</span>
+                </a>
+            </nav>
+
+            <!-- Dashboard Content -->
+            <main id="dashboard-content" class="flex-1 p-6 overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="card bg-gradient-to-br from-green-400 to-green-600 text-white flex flex-col justify-between">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-money-bill-wave text-3xl mr-3 opacity-90"></i>
+                            <h3 class="text-lg font-semibold">Saldo Atual</h3>
+                        </div>
+                        <p id="current-balance" class="text-4xl font-extrabold">$0.00</p>
+                    </div>
+                    <div class="card bg-gradient-to-br from-blue-400 to-blue-600 text-white flex flex-col justify-between">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-arrow-alt-circle-down text-3xl mr-3 opacity-90"></i>
+                            <h3 class="text-lg font-semibold">Receitas do Mês</h3>
+                        </div>
+                        <p id="monthly-income" class="text-4xl font-extrabold">$0.00</p>
+                    </div>
+                    <div class="card bg-gradient-to-br from-red-400 to-red-600 text-white flex flex-col justify-between">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-arrow-alt-circle-up text-3xl mr-3 opacity-90"></i>
+                            <h3 class="text-lg font-semibold">Despesas do Mês</h3>
+                        </div>
+                        <p id="monthly-expenses" class="text-4xl font-extrabold">$0.00</p>
+                    </div>
+                    <div class="card bg-gradient-to-br from-yellow-400 to-orange-500 text-white flex flex-col justify-between">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-wallet text-3xl mr-3 opacity-90"></i>
+                            <h3 class="text-lg font-semibold">Economia Estimada</h3>
+                        </div>
+                        <p id="estimated-savings" class="text-4xl font-extrabold">$0.00</p>
+                    </div>
+                </div>
+
+                <div class="card mb-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center"><i class="fas fa-history mr-2 text-indigo-500"></i>Transações Recentes</h3>
+                    <div id="recent-transactions-list" class="space-y-2">
+                        <!-- Transactions will be loaded here -->
+                        <p class="text-gray-500 text-center">Nenhuma transação recente.</p>
+                    </div>
+                    <button id="view-all-transactions-btn" class="btn btn-secondary w-full mt-6">
+                        <i class="fas fa-eye mr-2"></i>Ver Todas as Transações
+                    </button>
+                </div>
+
+                <div class="card">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center"><i class="fas fa-bullseye mr-2 text-indigo-500"></i>Metas Financeiras</h3>
+                    <div id="financial-goals-list" class="space-y-4">
+                        <!-- Goals will be loaded here -->
+                        <p class="text-gray-500 text-center">Nenhuma meta definida ainda.</p>
+                    </div>
+                    <button id="add-goal-btn" class="btn btn-primary w-full mt-6">
+                        <i class="fas fa-plus-circle mr-2"></i>Adicionar Nova Meta
+                    </button>
+                </div>
+            </main>
+
+            <!-- Transactions Content -->
+            <main id="transactions-content" class="hidden flex-1 p-6 overflow-y-auto">
+                <div class="card mb-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center"><i class="fas fa-exchange-alt mr-2 text-indigo-500"></i>Minhas Transações</h3>
+                    <div class="flex justify-end mb-4">
+                        <button id="add-transaction-btn" class="btn btn-primary flex items-center">
+                            <i class="fas fa-plus mr-2"></i>Adicionar Transação
+                        </button>
+                    </div>
+                    <div id="transactions-list" class="space-y-2">
+                        <!-- All transactions will be loaded here -->
+                        <p class="text-gray-500 text-center">Nenhuma transação registrada.</p>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Reports Content -->
+            <main id="reports-content" class="hidden flex-1 p-6 overflow-y-auto">
+                <div class="card">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center"><i class="fas fa-chart-pie mr-2 text-indigo-500"></i>Relatórios Financeiros</h3>
+                    <div class="mb-6">
+                        <h4 class="text-lg font-semibold text-gray-700 mb-2">Despesas por Categoria (Mês Atual)</h4>
+                        <div class="relative h-64">
+                            <canvas id="expensesByCategoryChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="mb-6">
+                        <h4 class="text-lg font-semibold text-gray-700 mb-2">Receitas vs Despesas (Últimos 6 Meses)</h4>
+                        <div class="relative h-64">
+                            <canvas id="incomeVsExpensesChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-blue-100 border-l-4 border-blue-500 text-blue-700 rounded-lg">
+                        <p><i class="fas fa-info-circle mr-2"></i>Mais gráficos e opções de filtro em breve!</p>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Profile Content -->
+            <main id="profile-content" class="hidden flex-1 p-6 overflow-y-auto">
+                <div class="card flex flex-col items-center mb-6">
+                    <img id="profile-pic-display" src="https://placehold.co/120x120/6366f1/ffffff?text=PF" alt="Foto de Perfil" class="profile-pic w-32 h-32 mb-4">
+                    <h3 id="profile-name-display" class="text-2xl font-bold text-gray-800 mb-2"></h3>
+                    <p id="profile-email-display" class="text-gray-600 mb-4"></p>
+                    <button id="edit-profile-btn" class="btn btn-primary flex items-center">
+                        <i class="fas fa-edit mr-2"></i>Editar Perfil
+                    </button>
+                </div>
+                <div class="card mb-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center"><i class="fas fa-folder-open mr-2 text-indigo-500"></i>Gerenciar Categorias</h3>
+                    <button id="manage-categories-btn" class="btn btn-secondary w-full mt-2">
+                        <i class="fas fa-tags mr-2"></i>Minhas Categorias
+                    </button>
+                </div>
+                <div class="card">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center"><i class="fas fa-cogs mr-2 text-indigo-500"></i>Configurações da Conta</h3>
+                    <button id="change-password-btn" class="btn btn-secondary w-full mt-2">
+                        <i class="fas fa-key mr-2"></i>Alterar Senha
+                    </button>
+                    <button id="delete-account-btn" class="btn btn-danger w-full mt-4">
+                        <i class="fas fa-trash-alt mr-2"></i>Excluir Conta
+                    </button>
+                </div>
+            </main>
+
+            <!-- Add Transaction FAB -->
+            <button id="fab-add-transaction" class="fixed bottom-20 right-6 bg-purple-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-3xl font-bold hover:bg-purple-700 transition-transform transform hover:scale-110 z-20">
+                <i class="fas fa-plus"></i>
+            </button>
+        </section>
+
+        <!-- Modals -->
+
+        <!-- Add/Edit Transaction Modal -->
+        <div id="transaction-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="closeModal('transaction-modal')">&times;</span>
+                <h3 id="transaction-modal-title" class="text-2xl font-bold text-gray-800 mb-4">Adicionar Transação</h3>
+                <form id="transaction-form">
+                    <input type="hidden" id="transaction-id">
+                    <div class="input-group">
+                        <label for="transaction-type">Tipo</label>
+                        <select id="transaction-type" required>
+                            <option value="income">Receita</option>
+                            <option value="expense">Despesa</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="transaction-description">Descrição</label>
+                        <input type="text" id="transaction-description" placeholder="Ex: Salário, Aluguel" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="transaction-amount">Valor</label>
+                        <input type="number" id="transaction-amount" step="0.01" placeholder="Ex: 100.50" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="transaction-date">Data</label>
+                        <input type="date" id="transaction-date" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="transaction-category">Categoria</label>
+                        <select id="transaction-category" required>
+                            <!-- Categorias serão carregadas via JS -->
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full mt-4">Salvar Transação</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add/Edit Goal Modal -->
+        <div id="goal-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="closeModal('goal-modal')">&times;</span>
+                <h3 id="goal-modal-title" class="text-2xl font-bold text-gray-800 mb-4">Adicionar Meta</h3>
+                <form id="goal-form">
+                    <input type="hidden" id="goal-id">
+                    <div class="input-group">
+                        <label for="goal-name">Nome da Meta</label>
+                        <input type="text" id="goal-name" placeholder="Ex: Carro novo, Viagem" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="goal-target-amount">Valor Alvo</label>
+                        <input type="number" id="goal-target-amount" step="0.01" placeholder="Ex: 10000.00" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="goal-current-amount">Valor Atual</label>
+                        <input type="number" id="goal-current-amount" step="0.01" placeholder="Ex: 500.00" value="0.00" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="goal-due-date">Data Limite (Opcional)</label>
+                        <input type="date" id="goal-due-date">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full mt-4">Salvar Meta</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Manage Categories Modal -->
+        <div id="category-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="closeModal('category-modal')">&times;</span>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Gerenciar Categorias</h3>
+                <form id="add-category-form" class="mb-6">
+                    <div class="input-group flex items-end">
+                        <div class="flex-grow mr-2">
+                            <label for="new-category-name">Nova Categoria</label>
+                            <input type="text" id="new-category-name" placeholder="Nome da categoria" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary flex-shrink-0">
+                            <i class="fas fa-plus mr-2"></i>Adicionar
+                        </button>
+                    </div>
+                </form>
+                <div id="categories-list" class="space-y-2">
+                    <p class="text-gray-500 text-center">Nenhuma categoria personalizada.</p>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Edit Profile Modal -->
+        <div id="edit-profile-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="closeModal('edit-profile-modal')">&times;</span>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Editar Perfil</h3>
+                <form id="edit-profile-form">
+                    <div class="input-group">
+                        <label for="edit-profile-name">Nome</label>
+                        <input type="text" id="edit-profile-name" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="edit-profile-photo-url">URL da Foto de Perfil</label>
+                        <input type="url" id="edit-profile-photo-url" placeholder="https://exemplo.com/sua-foto.jpg">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full mt-4">Salvar Alterações</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Change Password Modal -->
+        <div id="change-password-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="closeModal('change-password-modal')">&times;</span>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Alterar Senha</h3>
+                <form id="change-password-form">
+                    <div class="input-group">
+                        <label for="current-password">Senha Atual</label>
+                        <input type="password" id="current-password" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="new-password">Nova Senha</label>
+                        <input type="password" id="new-password" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="confirm-new-password">Confirmar Nova Senha</label>
+                        <input type="password" id="confirm-new-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full mt-4">Alterar Senha</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Forgot Password Modal -->
+        <div id="forgot-password-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="closeModal('forgot-password-modal')">&times;</span>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Redefinir Senha</h3>
+                <form id="forgot-password-form">
+                    <p class="text-gray-600 mb-4">Digite seu e-mail para receber um link de redefinição de senha.</p>
+                    <div class="input-group">
+                        <label for="forgot-password-email">E-mail</label>
+                        <input type="email" id="forgot-password-email" placeholder="seuemail@exemplo.com" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full mt-4">Enviar Link de Redefinição</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Custom Confirmation Modal -->
+        <div id="confirmation-modal" class="modal">
+            <div class="modal-content">
+                <h3 id="confirmation-modal-title" class="text-xl font-bold text-gray-800 mb-4">Confirmação</h3>
+                <p id="confirmation-modal-message" class="text-gray-700 mb-6"></p>
+                <div class="flex justify-end space-x-4">
+                    <button id="confirm-cancel-btn" class="btn btn-secondary">Cancelar</button>
+                    <button id="confirm-action-btn" class="btn btn-danger">Confirmar</button>
+                </div>
+                <div id="confirmation-password-group" class="input-group mt-4 hidden">
+                    <label for="confirmation-password">Senha para confirmar</label>
+                    <input type="password" id="confirmation-password" placeholder="Digite sua senha">
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Notification Message Box -->
+        <div id="notification-box" class="notification">
+            <p id="notification-message"></p>
+        </div>
+
+    </div>
+
+    <!-- Main Application Logic -->
+    <script type="module" src="./app.js"></script>
+    <!-- Service Worker Registration -->
+    <script type="text/javascript" src="./service-worker.js"></script>
+</body>
+</html>
